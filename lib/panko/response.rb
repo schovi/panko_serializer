@@ -43,11 +43,29 @@ module Panko
       writer.to_s
     end
 
+    def as_json(_options = nil)
+      build(@data)
+    end
+
     def self.create
       Response.new(yield ResponseCreator)
     end
 
     private
+
+    def build(data)
+      return data.map { |v| build(v) } if data.is_a?(Array)
+      return data.each_with_object({}) { |(k, v), h| h[k.to_s] = build(v) } if data.is_a?(Hash)
+
+      if data.is_a?(Panko::ArraySerializer) ||
+          data.is_a?(Panko::Serializer) ||
+          data.is_a?(Panko::Response) ||
+          data.is_a?(Panko::JsonValue)
+        Oj.load(data.to_json)
+      else
+        data.as_json
+      end
+    end
 
     def write(writer, data, key = nil)
       return write_array(writer, data, key) if data.is_a?(Array)
