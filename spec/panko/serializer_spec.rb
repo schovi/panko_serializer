@@ -743,4 +743,43 @@ describe Panko::Serializer do
       end
     end
   end
+
+  context "response integration" do
+    class ResponseFooSerializer < Panko::Serializer
+      attributes :name, :address
+    end
+
+    class HolderWithResponseSerializer < Panko::Serializer
+      attributes :wrapped_object
+
+      def wrapped_object
+        Panko::Response.create do |r|
+          {
+            custom: {
+              name: object.name,
+              data: r.array_serializer(object.foos, ResponseFooSerializer)
+            }
+          }
+        end
+      end
+    end
+
+    it "serializes response returned from attribute" do
+      foo1 = Foo.create(name: Faker::Lorem.word, address: Faker::Lorem.word).reload
+      foo2 = Foo.create(name: Faker::Lorem.word, address: Faker::Lorem.word).reload
+      holder = FoosHolder.create(name: Faker::Lorem.word, foos: [foo1, foo2]).reload
+
+      expect(holder).to serialized_as(HolderWithResponseSerializer, {
+        "wrapped_object" => {
+          "custom" => {
+            "name" => holder.name,
+            "data" => [
+              {"name" => foo1.name, "address" => foo1.address},
+              {"name" => foo2.name, "address" => foo2.address}
+            ]
+          }
+        }
+      })
+    end
+  end
 end
